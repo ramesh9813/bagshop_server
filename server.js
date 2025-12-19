@@ -1,0 +1,39 @@
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+require('dotenv').config();
+const mongoose = require('mongoose');
+const productRoutes = require('./routes/productRoutes');
+const userRoutes = require('./routes/userRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const requestLogger = require('./middleware/requestLogger');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(express.json()); // Allows you to read JSON data sent from frontend
+app.use(cookieParser());
+app.use(requestLogger);
+
+// Routes
+app.use('/api/v1', productRoutes);
+app.use('/api/v1', userRoutes);
+app.use('/api/v1', orderRoutes);
+app.use('/api/v1', cartRoutes);
+app.use('/api/v1', paymentRoutes);
+
+// Connect to MongoDB
+mongoose.connect(process.env.DB_URI)
+    .then(() => console.log("Database Connected"))
+    .catch(err => console.log(err));
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+
