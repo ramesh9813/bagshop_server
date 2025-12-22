@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const Cart = require('../models/Cart');
 const generateEsewaSignature = require('../utils/esewaSignature');
 const axios = require('axios');
 
@@ -13,20 +14,20 @@ exports.initiateEsewaPayment = async (req, res) => {
         }
 
         // eSewa specific parameters
-        const total_amount = order.totalPrice.toString();
-        const transaction_uuid = `${orderId}-${Date.now()}`; // Unique for each attempt
-        const product_code = process.env.ESEWA_MERCHANT_ID;
+        const total_amount = order.totalPrice.toString().replace(/,/g, '');
+        const transaction_uuid = `${orderId}-${Date.now()}`;
+        const product_code = process.env.ESEWA_MERCHANT_ID.trim();
 
         const signature = generateEsewaSignature(total_amount, transaction_uuid, product_code);
 
         const formData = {
-            amount: order.itemsPrice.toString(),
+            amount: order.itemsPrice.toString().replace(/,/g, ''),
             tax_amount: "0",
             total_amount: total_amount,
             transaction_uuid: transaction_uuid,
             product_code: product_code,
             product_service_charge: "0",
-            product_delivery_charge: order.shippingPrice.toString(),
+            product_delivery_charge: order.shippingPrice.toString().replace(/,/g, ''),
             success_url: process.env.ESEWA_SUCCESS_URL,
             failure_url: process.env.ESEWA_FAILURE_URL,
             signed_field_names: "total_amount,transaction_uuid,product_code",
@@ -72,6 +73,9 @@ exports.verifyEsewaPayment = async (req, res) => {
                 order.paymentInfo.status = "Succeeded";
                 order.paidAt = Date.now();
                 await order.save();
+
+                // Clear User's Cart
+                await Cart.findOneAndDelete({ user: order.user });
 
                 return res.status(200).json({ success: true, message: "Payment Verified and Order Updated", order });
             }

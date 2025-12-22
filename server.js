@@ -8,13 +8,17 @@ const userRoutes = require('./routes/userRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
 app.use(express.json()); // Allows you to read JSON data sent from frontend
 app.use(cookieParser());
 app.use(requestLogger);
@@ -25,6 +29,7 @@ app.use('/api/v1', userRoutes);
 app.use('/api/v1', orderRoutes);
 app.use('/api/v1', cartRoutes);
 app.use('/api/v1', paymentRoutes);
+app.use('/api/v1', adminRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.DB_URI)

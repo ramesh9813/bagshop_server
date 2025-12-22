@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema({
         default: 'user', 
         enum: ['user', 'admin'] 
     },
+    shippingInfo: {
+        address: { type: String },
+        city: { type: String },
+        phoneNo: { type: String }
+    },
     
     resetPasswordToken: String,
     resetPasswordExpire: Date

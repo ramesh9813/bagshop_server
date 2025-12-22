@@ -95,6 +95,32 @@ exports.getUserDetails = async (req, res, next) => {
     }
 };
 
+// Update Password
+exports.updatePassword = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id).select("+password");
+
+        const { oldPassword, newPassword, confirmPassword } = req.body;
+
+        const isMatched = await user.comparePassword(oldPassword);
+
+        if (!isMatched) {
+            return res.status(400).json({ success: false, message: "Old Password is Incorrect" });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ success: false, message: "Password does not match" });
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        sendToken(user, 200, res);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Update User Profile
 exports.updateProfile = async (req, res, next) => {
     try {
@@ -102,6 +128,10 @@ exports.updateProfile = async (req, res, next) => {
             name: req.body.name,
             email: req.body.email,
         };
+
+        if (req.body.shippingInfo) {
+            newUserData.shippingInfo = req.body.shippingInfo;
+        }
 
         // We use req.user.id which comes from the auth middleware
         const user = await User.findByIdAndUpdate(req.user.id, newUserData, {
@@ -152,6 +182,32 @@ exports.getAllUsers = async (req, res, next) => {
         res.status(200).json({
             success: true,
             users,
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Update User Role (Admin)
+exports.updateUserRole = async (req, res, next) => {
+    try {
+        const newUserData = {
+            role: req.body.role,
+        };
+
+        const user = await User.findByIdAndUpdate(req.params.id, newUserData, {
+            new: true,
+            runValidators: true,
+            useFindAndModify: false,
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "User Role Updated Successfully",
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

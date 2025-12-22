@@ -19,8 +19,10 @@ A robust RESTful API built for a handmade bag e-commerce platform using the **ME
 - **Cart:** Persists user shopping sessions. Items store `product` references and `quantity`.
 - **Order:** 
   - **Snapshot:** Captures product `name`, `price`, and `image` at the time of purchase (does not rely on live product data).
-  - **Lifecycle:** Tracks shipping info, payment status (eSewa Transaction IDs), and fulfillment status.
-- **Payment (eSewa):** Handles secure payment initiation, signature generation (HMAC-SHA256), and server-to-server verification.
+    - **Lifecycle:** Tracks shipping info, payment status (eSewa Transaction IDs), and fulfillment status. Supports `eSewa` and `COD` methods.
+- **Payment (eSewa & COD):** 
+  - **eSewa:** Handles secure payment initiation, signature generation (HMAC-SHA256), and server-to-server verification.
+  - **COD:** Orders are created with 'Pending' status and processed directly.
 
 ### 3. Key Business Logic & Features
 - **Authentication:** 
@@ -34,7 +36,9 @@ A robust RESTful API built for a handmade bag e-commerce platform using the **ME
   - **Source of Truth:** Creates orders *strictly* from the user's active Cart (ignores client-side price/item payloads).
   - **Stock Management:** Atomic stock deduction upon order creation.
   - **Financial Integrity:** Recalculates all totals server-side using database prices.
-  - **Cleanup:** Automatically clears the cart after successful order creation.
+  - **Cleanup:** 
+    - **eSewa:** Cart is cleared upon successful payment verification.
+    - **COD:** Cart is cleared immediately upon order creation.
 - **eSewa Integration:** 
   - HMAC-SHA256 Signature Generation.
   - Double Verification (Signature check + Upstream Status API check).

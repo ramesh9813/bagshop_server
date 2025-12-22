@@ -26,7 +26,8 @@ const orderSchema = new mongoose.Schema({
     ],
     paymentInfo: {
         id: { type: String }, // Transaction ID from eSewa
-        status: { type: String, default: "Pending" } 
+        status: { type: String, default: "Pending" },
+        method: { type: String, default: "eSewa" }
     },
     itemsPrice: { type: Number, default: 0 },
     shippingPrice: { type: Number, default: 0 },

@@ -80,17 +80,24 @@ exports.searchProducts = async (req, res) => {
 
         const searchRegex = new RegExp(keyword, 'i'); // 'i' makes it case insensitive
 
-        const products = await Product.find({
-            $or: [
-                { name: searchRegex },
-                { description: searchRegex }
-            ]
-        });
+        // 1. Priority Search: Check Title (Name) first
+        const productsByName = await Product.find({ name: searchRegex });
+
+        if (productsByName.length > 0) {
+            return res.status(200).json({
+                success: true,
+                count: productsByName.length,
+                products: productsByName
+            });
+        }
+
+        // 2. Secondary Search: Check Description if no title match
+        const productsByDesc = await Product.find({ description: searchRegex });
 
         res.status(200).json({
             success: true,
-            count: products.length,
-            products
+            count: productsByDesc.length,
+            products: productsByDesc
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -103,8 +110,8 @@ exports.createProductReview = async (req, res) => {
         const { rating, comment, productId } = req.body;
 
         const review = {
-            user: "64f1a2b3c4d5e6f7a8b9c0d1", // Hardcoded User ID for testing (since no Auth yet)
-            name: "Test User",               // Hardcoded Name
+            user: req.user._id,
+            name: req.user.name,
             rating: Number(rating),
             comment,
         };
