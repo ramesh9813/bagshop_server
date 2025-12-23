@@ -9,6 +9,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const inquiryRoutes = require('./routes/inquiryRoutes');
 const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
@@ -23,6 +24,9 @@ app.use(express.json()); // Allows you to read JSON data sent from frontend
 app.use(cookieParser());
 app.use(requestLogger);
 
+// Serve Static Files (Uploads)
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 app.use('/api/v1', productRoutes);
 app.use('/api/v1', userRoutes);
@@ -30,6 +34,7 @@ app.use('/api/v1', orderRoutes);
 app.use('/api/v1', cartRoutes);
 app.use('/api/v1', paymentRoutes);
 app.use('/api/v1', adminRoutes);
+app.use('/api/v1', inquiryRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.DB_URI)
