@@ -19,22 +19,22 @@ exports.askGPT = async (req, res) => {
         let dataContext = "";
         
         if (targetCollection === "Products") {
-            const data = await Product.find();
+            const data = await Product.find().sort({ createdAt: -1 }).limit(50); // Limit to 50 recent items to prevent token overflow
             dataContext = data.map(p => `- Product: ${p.name}, Price: NRS ${p.price}, Cat: ${p.category}, Stock: ${p.stock}, Sold: ${p.soldCount || 0}`).join('\n');
         } else if (targetCollection === "Orders") {
-            const data = await Order.find().limit(20); // Limit to recent 20 for context safety
+            const data = await Order.find().sort({ createdAt: -1 }).limit(20); // Limit to recent 20
             dataContext = data.map(o => `- OrderID: ${o._id}, Total: NRS ${o.totalPrice}, Status: ${o.orderStatus}, Items: ${o.orderItems.length}`).join('\n');
         } else if (targetCollection === "Users") {
-            const data = await User.find().select("-password");
+            const data = await User.find().select("-password").limit(50);
             dataContext = data.map(u => `- User: ${u.name}, Email: ${u.email}, Role: ${u.role}`).join('\n');
         } else if (targetCollection === "Inquiries") {
-            const data = await Inquiry.find().limit(20);
+            const data = await Inquiry.find().sort({ createdAt: -1 }).limit(20);
             dataContext = data.map(i => `- From: ${i.name}, Subject: ${i.subject}, Msg: ${i.message.substring(0, 50)}...`).join('\n');
         }
 
         const systemPrompt = `You are a helpful business assistant for 'BagShop'. 
         You are currently analyzing the ${targetCollection} database.
-        Here is the data context:
+        Here is the data context (recent/top items):
         ${dataContext}
         
         Answer the owner's questions accurately based strictly on this data.`;
@@ -49,7 +49,9 @@ exports.askGPT = async (req, res) => {
         }, {
             headers: {
                 "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173", // Required by OpenRouter
+                "X-Title": "BagShop Admin" // Required by OpenRouter
             }
         });
 
@@ -61,10 +63,15 @@ exports.askGPT = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("OpenRouter Error:", error.response?.data || error.message);
+        console.error("OpenRouter Error Full:", JSON.stringify(error.response?.data || error.message, null, 2));
+        
+        const providerError = error.response?.data?.error;
+        const errorMessage = providerError?.message || providerError?.metadata?.raw_error || error.message || "Failed to communicate with AI";
+
         res.status(500).json({ 
             success: false, 
-            message: error.response?.data?.error?.message || "Failed to communicate with AI" 
+            message: `Provider Error: ${errorMessage}`,
+            debug: providerError 
         });
     }
 };

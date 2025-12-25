@@ -3,16 +3,17 @@ const logActivity = require('../utils/activityLogger');
 
 // 1. Create a New Product (Admin only logic will be added later)
 exports.createProduct = async (req, res) => {
-    console.log("Request received: User is attempting to create a new product.");
-    console.log("Request Headers Content-Type:", req.headers['content-type']);
-    console.log("Posting product data:", req.body);
-
     try {
         if (!req.body) {
-             throw new Error("Request body is empty. Make sure you are sending JSON and Content-Type is application/json");
+             throw new Error("Request body is empty.");
         }
 
-        // TEMPORARY: Assign a default 'createdBy' ID if not provided, for testing purposes
+        // Handle File Upload
+        if (req.file) {
+            req.body.imageUrl = `${req.protocol}://${req.get('host')}/uploads/products/${req.file.filename}`;
+        }
+
+        // TEMPORARY: Assign a default 'createdBy' ID if not provided
         if (!req.body.createdBy) {
             req.body.createdBy = req.user?._id || "64f1a2b3c4d5e6f7a8b9c0d1"; 
         }
@@ -28,13 +29,11 @@ exports.createProduct = async (req, res) => {
         // Log Activity
         await logActivity(req.user, "CREATE", "Product", product._id, `Created product: ${product.name}`);
 
-        console.log("Success: Product added to database with ID:", product._id);
         res.status(201).json({
             success: true,
             product
         });
     } catch (error) {
-        console.error("Error: Failed to add product.", error.message);
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -114,6 +113,10 @@ exports.createProductReview = async (req, res) => {
     try {
         const { rating, comment, productId } = req.body;
 
+        if (!comment) {
+            return res.status(400).json({ success: false, message: "Comment is required for a review" });
+        }
+
         const review = {
             user: req.user._id,
             name: req.user.name,
@@ -180,6 +183,11 @@ exports.updateProduct = async (req, res) => {
                 success: false,
                 message: "Product not found"
             });
+        }
+
+        // Handle File Upload
+        if (req.file) {
+            req.body.imageUrl = `${req.protocol}://${req.get('host')}/uploads/products/${req.file.filename}`;
         }
 
         product = await Product.findByIdAndUpdate(req.params.id, req.body, {

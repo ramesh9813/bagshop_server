@@ -18,13 +18,14 @@ exports.newOrder = async (req, res, next) => {
         const cart = await Cart.findOne({ user: userId });
 
         if (!cart || cart.cartItems.length === 0) {
+            console.log("Order Error: Cart is empty for user", userId);
             return res.status(400).json({ success: false, message: "Your cart is empty" });
         }
 
         let calculatedItemsPrice = 0;
         const verifiedOrderItems = [];
 
-        // 2. Verify products and calculate prices based on Cart Items
+        // 2. First Pass: Verify ALL items and stock without saving
         for (const item of cart.cartItems) {
             const product = await Product.findById(item.product);
             
@@ -33,16 +34,11 @@ exports.newOrder = async (req, res, next) => {
             }
 
             if (product.stock < item.quantity) {
+                console.log(`Order Error: Insufficient stock for ${product.name}. Requested: ${item.quantity}, Available: ${product.stock}`);
                 return res.status(400).json({ success: false, message: `Insufficient stock for product: ${product.name}` });
             }
 
-            // Deduct stock and increment soldCount
-            product.stock -= item.quantity;
-            product.soldCount = (product.soldCount || 0) + item.quantity;
-            await product.save();
-
-            const itemTotal = product.price * item.quantity;
-            calculatedItemsPrice += itemTotal;
+            calculatedItemsPrice += product.price * item.quantity;
 
             verifiedOrderItems.push({
                 product: product._id,
@@ -53,9 +49,19 @@ exports.newOrder = async (req, res, next) => {
             });
         }
 
+        // 3. Second Pass: Deduct stock after all items verified
+        for (const item of cart.cartItems) {
+            await Product.findByIdAndUpdate(item.product, {
+                $inc: {
+                    stock: -item.quantity,
+                    soldCount: item.quantity
+                }
+            }, { validateBeforeSave: false });
+        }
+
         const totalPrice = calculatedItemsPrice + (Number(shippingPrice) || 0);
 
-        // 3. Create the Order
+        // 4. Create the Order
         const order = await Order.create({
             shippingInfo,
             orderItems: verifiedOrderItems,
@@ -66,18 +72,15 @@ exports.newOrder = async (req, res, next) => {
             user: userId,
         });
 
-        // 4. Clear cart if COD
-        if (paymentInfo && paymentInfo.method === 'COD') {
-             await Cart.findOneAndDelete({ user: userId });
-        }
-        
-        // await Cart.findOneAndDelete({ user: userId });
+        // 5. Clear cart if COD (or always clear if order created successfully)
+        await Cart.findOneAndDelete({ user: userId });
 
         res.status(201).json({
             success: true,
             order,
         });
     } catch (error) {
+        console.error("Order Creation Exception:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

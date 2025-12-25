@@ -7,6 +7,7 @@ exports.getAdminStats = async (req, res, next) => {
     try {
         const productsCount = await Product.countDocuments();
         const usersCount = await User.countDocuments();
+        const criticalItemsCount = await Product.countDocuments({ stock: { $lt: 5 } });
         
         const orders = await Order.find();
         const ordersCount = orders.length;
@@ -21,7 +22,8 @@ exports.getAdminStats = async (req, res, next) => {
             productsCount,
             usersCount,
             ordersCount,
-            totalSales
+            totalSales,
+            criticalItemsCount
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -48,10 +50,26 @@ exports.getAuditLogs = async (req, res) => {
 // 3. Get Detailed Analytics
 exports.getDetailedAnalytics = async (req, res) => {
     try {
-        const orders = await Order.find().sort({ createdAt: 1 });
+        const { range } = req.query;
+        let dateFilter = {};
+
+        if (range && range !== 'all') {
+            const now = new Date();
+            let start = new Date();
+            
+            if (range === 'today') start.setHours(0, 0, 0, 0);
+            else if (range === 'week') start.setDate(now.getDate() - 7);
+            else if (range === 'month') start.setMonth(now.getMonth() - 1);
+            else if (range === 'year') start.setFullYear(now.getFullYear() - 1);
+            
+            dateFilter = { createdAt: { $gte: start } };
+        }
+
+        const orders = await Order.find(dateFilter).sort({ createdAt: 1 });
         
         // Group by category sales
         const categorySales = await Order.aggregate([
+            { $match: dateFilter }, // Filter first
             { $unwind: "$orderItems" },
             {
                 $lookup: {

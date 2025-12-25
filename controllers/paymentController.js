@@ -14,20 +14,21 @@ exports.initiateEsewaPayment = async (req, res) => {
         }
 
         // eSewa specific parameters
-        const total_amount = order.totalPrice.toString().replace(/,/g, '');
+        // Ensure total_amount is a clean string (no decimals if whole number)
+        const total_amount = Math.round(order.totalPrice).toString();
         const transaction_uuid = `${orderId}-${Date.now()}`;
-        const product_code = process.env.ESEWA_MERCHANT_ID.trim();
+        const product_code = (process.env.ESEWA_MERCHANT_ID || 'EPAYTEST').trim();
 
         const signature = generateEsewaSignature(total_amount, transaction_uuid, product_code);
 
         const formData = {
-            amount: order.itemsPrice.toString().replace(/,/g, ''),
+            amount: Math.round(order.itemsPrice).toString(),
             tax_amount: "0",
             total_amount: total_amount,
             transaction_uuid: transaction_uuid,
             product_code: product_code,
             product_service_charge: "0",
-            product_delivery_charge: order.shippingPrice.toString().replace(/,/g, ''),
+            product_delivery_charge: Math.round(order.shippingPrice).toString(),
             success_url: process.env.ESEWA_SUCCESS_URL,
             failure_url: process.env.ESEWA_FAILURE_URL,
             signed_field_names: "total_amount,transaction_uuid,product_code",

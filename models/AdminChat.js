@@ -29,4 +29,4 @@ const adminChatSchema = new mongoose.Schema({
     ]
 }, { timestamps: true });
 
-module.exports = mongoose.model('AdminChat', adminChatSchema);
+module.exports = mongoose.model('AdminChatSession', adminChatSchema);
