@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const generateEsewaSignature = require('../utils/esewaSignature');
 const axios = require('axios');
+const sendEmail = require('../utils/sendEmail');
 
 // 1. Initiate eSewa Payment
 exports.initiateEsewaPayment = async (req, res) => {
@@ -67,7 +68,8 @@ exports.verifyEsewaPayment = async (req, res) => {
         if (response.data.status === 'COMPLETE') {
             // Update Order
             const orderId = decodedData.transaction_uuid.split('-')[0];
-            const order = await Order.findById(orderId);
+            // Populate user to get email for sending receipt
+            const order = await Order.findById(orderId).populate('user', 'email name');
 
             if (order) {
                 order.paymentInfo.id = decodedData.ref_id;
@@ -76,7 +78,61 @@ exports.verifyEsewaPayment = async (req, res) => {
                 await order.save();
 
                 // Clear User's Cart
-                await Cart.findOneAndDelete({ user: order.user });
+                await Cart.findOneAndDelete({ user: order.user._id });
+
+                // Send Order Summary Email
+                try {
+                    const message = `Payment Verified for Order: ${order._id}`;
+                    const html = `
+                        <div style="font-family: 'Courier New', Courier, monospace; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px;">
+                            <h2 style="color: #28a745; text-align: center;">Payment Successful!</h2>
+                            <p>Hi ${order.user.name},</p>
+                            <p>Thank you for your purchase. Your payment has been successfully verified.</p>
+                            
+                            <h3 style="border-bottom: 2px solid #ffc107; padding-bottom: 5px;">Order Summary</h3>
+                            <p><strong>Order ID:</strong> ${order._id}</p>
+                            <p><strong>Payment Method:</strong> eSewa</p>
+                            
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                                <thead>
+                                    <tr style="background-color: #f8f9fa;">
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Product</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Qty</th>
+                                        <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${order.orderItems.map(item => `
+                                    <tr>
+                                        <td style="padding: 10px; border: 1px solid #ddd;">${item.name}</td>
+                                        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+                                        <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">NRS ${item.price}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                            
+                            <div style="text-align: right; margin-top: 20px;">
+                                <p>Subtotal: NRS ${order.itemsPrice}</p>
+                                <p>Shipping: NRS ${order.shippingPrice}</p>
+                                <h3 style="color: #333;">Total Paid: NRS ${order.totalPrice}</h3>
+                            </div>
+                            
+                            <p style="text-align: center; margin-top: 30px; font-size: 12px; color: #777;">
+                                &copy; ${new Date().getFullYear()} BagShop. All rights reserved.
+                            </p>
+                        </div>
+                    `;
+
+                    await sendEmail({
+                        email: order.user.email,
+                        subject: 'Order Confirmation - Payment Successful',
+                        message,
+                        html
+                    });
+                } catch (emailError) {
+                    console.error("Failed to send order confirmation email:", emailError);
+                }
 
                 return res.status(200).json({ success: true, message: "Payment Verified and Order Updated", order });
             }

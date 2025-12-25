@@ -2,6 +2,7 @@ const Order = require("../models/Order");
 const Product = require("../models/Product");
 const Cart = require("../models/Cart");
 const logActivity = require("../utils/activityLogger");
+const sendEmail = require("../utils/sendEmail");
 
 // Create New Order
 exports.newOrder = async (req, res, next) => {
@@ -74,6 +75,61 @@ exports.newOrder = async (req, res, next) => {
 
         // 5. Clear cart if COD (or always clear if order created successfully)
         await Cart.findOneAndDelete({ user: userId });
+
+        // 6. Send Order Confirmation Email
+        try {
+            const message = `Order Confirmed: ${order._id}`;
+            const html = `
+                <div style="font-family: 'Courier New', Courier, monospace; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px;">
+                    <h2 style="color: #28a745; text-align: center;">Order Confirmed!</h2>
+                    <p>Hi ${req.user.name},</p>
+                    <p>Thank you for your order. We are processing it now.</p>
+                    
+                    <h3 style="border-bottom: 2px solid #ffc107; padding-bottom: 5px;">Order Summary</h3>
+                    <p><strong>Order ID:</strong> ${order._id}</p>
+                    <p><strong>Payment Method:</strong> ${order.paymentInfo.method}</p>
+                    <p><strong>Status:</strong> ${order.paymentInfo.status}</p>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa;">
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Product</th>
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">Qty</th>
+                                <th style="padding: 10px; border: 1px solid #ddd; text-align: right;">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${order.orderItems.map(item => `
+                            <tr>
+                                <td style="padding: 10px; border: 1px solid #ddd;">${item.name}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+                                <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">NRS ${item.price}</td>
+                            </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <div style="text-align: right; margin-top: 20px;">
+                        <p>Subtotal: NRS ${order.itemsPrice}</p>
+                        <p>Shipping: NRS ${order.shippingPrice}</p>
+                        <h3 style="color: #333;">Total Amount: NRS ${order.totalPrice}</h3>
+                    </div>
+                    
+                    <p style="text-align: center; margin-top: 30px; font-size: 12px; color: #777;">
+                        &copy; ${new Date().getFullYear()} BagShop. All rights reserved.
+                    </p>
+                </div>
+            `;
+
+            await sendEmail({
+                email: req.user.email,
+                subject: 'Order Confirmation - BagShop',
+                message,
+                html
+            });
+        } catch (emailError) {
+            console.error("Failed to send order confirmation email:", emailError);
+        }
 
         res.status(201).json({
             success: true,
