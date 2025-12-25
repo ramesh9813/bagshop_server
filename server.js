@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
 const adminChatRoutes = require('./routes/adminChatRoutes');
 const requestLogger = require('./middleware/requestLogger');
+const errorMiddleware = require('./middleware/error');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +38,9 @@ app.use('/api/v1', paymentRoutes);
 app.use('/api/v1', adminRoutes);
 app.use('/api/v1', inquiryRoutes);
 app.use('/api/v1', adminChatRoutes);
+
+// Middleware for Errors
+app.use(errorMiddleware);
 
 // Connect to MongoDB
 mongoose.connect(process.env.DB_URI)
