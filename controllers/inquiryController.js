@@ -93,3 +93,46 @@ exports.getAllInquiries = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// Get single inquiry details (Admin)
+exports.getSingleInquiry = async (req, res) => {
+    try {
+        const inquiry = await Inquiry.findById(req.params.id);
+
+        if (!inquiry) {
+            return res.status(404).json({ success: false, message: "Inquiry not found" });
+        }
+
+        res.status(200).json({
+            success: true,
+            inquiry
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Update inquiry status (Admin)
+exports.updateInquiry = async (req, res) => {
+    try {
+        const inquiry = await Inquiry.findById(req.params.id);
+
+        if (!inquiry) {
+            return res.status(404).json({ success: false, message: "Inquiry not found" });
+        }
+
+        if (req.body.status) {
+            inquiry.status = req.body.status;
+        }
+
+        await inquiry.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Inquiry updated successfully",
+            inquiry
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

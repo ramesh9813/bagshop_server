@@ -52,6 +52,7 @@ const productSchema = new mongoose.Schema({
     // Summary data
     ratings: { type: Number, default: 0 },
     numOfReviews: { type: Number, default: 0 },
+    soldCount: { type: Number, default: 0 },
 
     // Reference to the Admin who created this product
     createdBy: {

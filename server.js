@@ -10,6 +10,7 @@ const cartRoutes = require('./routes/cartRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
+const adminChatRoutes = require('./routes/adminChatRoutes');
 const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/v1', cartRoutes);
 app.use('/api/v1', paymentRoutes);
 app.use('/api/v1', adminRoutes);
 app.use('/api/v1', inquiryRoutes);
+app.use('/api/v1', adminChatRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.DB_URI)

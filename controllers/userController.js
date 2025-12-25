@@ -1,4 +1,7 @@
 const User = require('../models/User');
+const logActivity = require('../utils/activityLogger');
+const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 // Helper to send Token
 const sendToken = (user, statusCode, res) => {
@@ -24,6 +27,9 @@ exports.registerUser = async (req, res, next) => {
     try {
         const { name, email, password } = req.body;
 
+        // Generate Verification Token
+        const verificationToken = crypto.randomBytes(20).toString('hex');
+
         const user = await User.create({
             name,
             email,
@@ -31,10 +37,64 @@ exports.registerUser = async (req, res, next) => {
             avatar: {
                 public_id: "sample_id",
                 url: "profilepicUrl"
-            }
+            },
+            verificationToken
         });
 
-        sendToken(user, 201, res);
+        // Construct Verification URL
+        const verifyUrl = `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+
+        const message = `Welcome to BagShop, ${name}!\n\nPlease verify your account by clicking the link below:\n\n${verifyUrl}\n\nIf you did not request this, please ignore this email.`;
+
+        const html = `
+            <h1>Welcome to BagShop!</h1>
+            <p>Hi ${name},</p>
+            <p>Thank you for registering. Please click the button below to verify your email address:</p>
+            <a href="${verifyUrl}" style="background-color: #ffc107; color: black; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email</a>
+            <p>Or copy and paste this link: ${verifyUrl}</p>
+        `;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'BagShop Account Verification',
+                message,
+                html
+            });
+
+            res.status(201).json({
+                success: true,
+                message: `Email sent to: ${user.email}. Please verify your account.`
+            });
+
+        } catch (emailError) {
+            user.verificationToken = undefined;
+            await user.save({ validateBeforeSave: false });
+            return res.status(500).json({ success: false, message: "Registration successful but failed to send verification email. Please contact support." });
+        }
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Verify Email
+exports.verifyEmail = async (req, res, next) => {
+    try {
+        const user = await User.findOne({
+            verificationToken: req.params.token
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: "Invalid or expired verification token" });
+        }
+
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        await user.save();
+
+        sendToken(user, 200, res);
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -54,6 +114,10 @@ exports.loginUser = async (req, res, next) => {
 
         if (!user) {
             return res.status(401).json({ success: false, message: "Invalid email or password" });
+        }
+
+        if (!user.isVerified) {
+            return res.status(401).json({ success: false, message: "Please verify your email to log in" });
         }
 
         const isPasswordMatched = await user.comparePassword(password);
@@ -191,19 +255,20 @@ exports.getAllUsers = async (req, res, next) => {
 // Update User Role (Admin)
 exports.updateUserRole = async (req, res, next) => {
     try {
-        const newUserData = {
-            role: req.body.role,
-        };
-
-        const user = await User.findByIdAndUpdate(req.params.id, newUserData, {
-            new: true,
-            runValidators: true,
-            useFindAndModify: false,
-        });
+        const user = await User.findById(req.params.id);
 
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
+
+        const oldRole = user.role;
+        const newRole = req.body.role;
+
+        user.role = newRole;
+        await user.save();
+
+        // Log Activity
+        await logActivity(req.user, "CHANGE_ROLE", "User", user._id, `Changed ${user.name}'s role from ${oldRole} to ${newRole}`);
 
         res.status(200).json({
             success: true,

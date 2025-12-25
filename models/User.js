@@ -35,8 +35,13 @@ const userSchema = new mongoose.Schema({
     role: { 
         type: String, 
         default: 'user', 
-        enum: ['user', 'admin'] 
+        enum: ['user', 'admin', 'owner'] 
     },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    verificationToken: String,
     shippingInfo: {
         address: { type: String },
         city: { type: String },
@@ -50,9 +55,9 @@ const userSchema = new mongoose.Schema({
 });
 
 // Encrypt Password before saving
-userSchema.pre("save", async function(next) {
+userSchema.pre("save", async function() {
     if (!this.isModified("password")) {
-        next();
+        return;
     }
     this.password = await bcrypt.hash(this.password, 10);
 });

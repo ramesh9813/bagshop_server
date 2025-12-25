@@ -1,6 +1,7 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const Cart = require("../models/Cart");
+const logActivity = require("../utils/activityLogger");
 
 // Create New Order
 exports.newOrder = async (req, res, next) => {
@@ -35,8 +36,9 @@ exports.newOrder = async (req, res, next) => {
                 return res.status(400).json({ success: false, message: `Insufficient stock for product: ${product.name}` });
             }
 
-            // Deduct stock
+            // Deduct stock and increment soldCount
             product.stock -= item.quantity;
+            product.soldCount = (product.soldCount || 0) + item.quantity;
             await product.save();
 
             const itemTotal = product.price * item.quantity;
@@ -145,6 +147,7 @@ exports.updateOrder = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "You have already delivered this order" });
         }
 
+        const oldStatus = order.orderStatus;
         order.orderStatus = req.body.status;
 
         if (req.body.status === "Delivered") {
@@ -152,6 +155,9 @@ exports.updateOrder = async (req, res, next) => {
         }
 
         await order.save({ validateBeforeSave: false });
+
+        // Log Activity
+        await logActivity(req.user, "UPDATE_STATUS", "Order", order._id, `Updated order status from ${oldStatus} to ${req.body.status}`);
 
         res.status(200).json({
             success: true,
@@ -170,11 +176,46 @@ exports.deleteOrder = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Order not found with this Id" });
         }
 
+        const orderId = order._id;
         await order.deleteOne();
+
+        // Log Activity
+        await logActivity(req.user, "DELETE", "Order", orderId, `Deleted order: ${orderId}`);
 
         res.status(200).json({
             success: true,
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Check if user has purchased the product
+exports.checkProductPurchase = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const userId = req.user._id;
+
+        // Find any order by this user that contains the product and is NOT Cancelled
+        // We accept Processing, Shipped, or Delivered.
+        const order = await Order.findOne({
+            user: userId,
+            "orderItems.product": productId,
+            orderStatus: { $in: ['Processing', 'Shipped', 'Delivered'] }
+        });
+
+        if (order) {
+            return res.status(200).json({
+                success: true,
+                hasPurchased: true
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            hasPurchased: false
+        });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

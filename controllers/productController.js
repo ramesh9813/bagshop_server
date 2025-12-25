@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const logActivity = require('../utils/activityLogger');
 
 // 1. Create a New Product (Admin only logic will be added later)
 exports.createProduct = async (req, res) => {
@@ -13,7 +14,7 @@ exports.createProduct = async (req, res) => {
 
         // TEMPORARY: Assign a default 'createdBy' ID if not provided, for testing purposes
         if (!req.body.createdBy) {
-            req.body.createdBy = "64f1a2b3c4d5e6f7a8b9c0d1"; 
+            req.body.createdBy = req.user?._id || "64f1a2b3c4d5e6f7a8b9c0d1"; 
         }
 
         // Check if product with same name already exists
@@ -23,6 +24,10 @@ exports.createProduct = async (req, res) => {
         }
 
         const product = await Product.create(req.body);
+        
+        // Log Activity
+        await logActivity(req.user, "CREATE", "Product", product._id, `Created product: ${product.name}`);
+
         console.log("Success: Product added to database with ID:", product._id);
         res.status(201).json({
             success: true,
@@ -129,7 +134,9 @@ exports.createProductReview = async (req, res) => {
         if (isReviewed) {
             product.reviews.forEach((rev) => {
                 if (rev.user.toString() === review.user.toString()) {
-                    rev.rating = rating;
+                    if (Number(rating) > 0) {
+                         rev.rating = rating;
+                    }
                     rev.comment = comment;
                 }
             });
@@ -138,12 +145,19 @@ exports.createProductReview = async (req, res) => {
             product.numOfReviews = product.reviews.length;
         }
 
+        // Recalculate Average Rating (Only count reviews with rating > 0)
         let avg = 0;
+        let ratedReviewsCount = 0;
+        
         product.reviews.forEach((rev) => {
-            avg += rev.rating;
+            if (rev.rating > 0) {
+                avg += rev.rating;
+                ratedReviewsCount++;
+            }
         });
 
-        product.ratings = avg / product.reviews.length;
+        // Avoid division by zero
+        product.ratings = ratedReviewsCount > 0 ? avg / ratedReviewsCount : 0;
 
         await product.save({ validateBeforeSave: false });
 
@@ -174,6 +188,9 @@ exports.updateProduct = async (req, res) => {
             useFindAndModify: false
         });
 
+        // Log Activity
+        await logActivity(req.user, "UPDATE", "Product", product._id, `Updated product: ${product.name}`);
+
         res.status(200).json({
             success: true,
             product
@@ -195,7 +212,12 @@ exports.deleteProduct = async (req, res) => {
             });
         }
 
+        const productName = product.name;
+        const productId = product._id;
         await product.deleteOne();
+
+        // Log Activity
+        await logActivity(req.user, "DELETE", "Product", productId, `Deleted product: ${productName}`);
 
         res.status(200).json({
             success: true,

@@ -15,3 +15,5 @@ ESEWA_VERIFY_URL=https://rc.esewa.com.np/api/epay/transaction/status/
 FRONTEND_URL=http://localhost:3000
 ESEWA_SUCCESS_URL=http://localhost:3000/payment/success
 ESEWA_FAILURE_URL=http://localhost:3000/payment/failure
+
+openrouter llm key: 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
