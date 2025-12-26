@@ -15,6 +15,8 @@ const sendToken = (user, statusCode, res) => {
             Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
         ),
         httpOnly: true,
+        secure: true, // Always true for cross-site (Render)
+        sameSite: 'none', // Allow cross-site cookie
     };
 
     res.status(statusCode).cookie('token', token, options).json({
@@ -203,6 +205,8 @@ exports.logout = catchAsyncErrors(async (req, res, next) => {
     res.cookie("token", null, {
         expires: new Date(Date.now()),
         httpOnly: true,
+        secure: true,
+        sameSite: 'none',
     });
 
     res.status(200).json({
