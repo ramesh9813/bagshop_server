@@ -22,6 +22,12 @@ exports.initiateEsewaPayment = async (req, res) => {
 
         const signature = generateEsewaSignature(total_amount, transaction_uuid, product_code);
 
+        // Determine Success and Failure URLs dynamically
+        // Priority: 1. Explicit ESEWA_XXX_URL, 2. Constructed from FRONTEND_URL, 3. Localhost fallback
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const successUrl = process.env.ESEWA_SUCCESS_URL || `${frontendUrl}/payment/success`;
+        const failureUrl = process.env.ESEWA_FAILURE_URL || `${frontendUrl}/payment/failure`;
+
         const formData = {
             amount: Math.round(order.itemsPrice).toString(),
             tax_amount: "0",
@@ -30,8 +36,8 @@ exports.initiateEsewaPayment = async (req, res) => {
             product_code: product_code,
             product_service_charge: "0",
             product_delivery_charge: Math.round(order.shippingPrice).toString(),
-            success_url: process.env.ESEWA_SUCCESS_URL,
-            failure_url: process.env.ESEWA_FAILURE_URL,
+            success_url: successUrl,
+            failure_url: failureUrl,
             signed_field_names: "total_amount,transaction_uuid,product_code",
             signature: signature,
         };
