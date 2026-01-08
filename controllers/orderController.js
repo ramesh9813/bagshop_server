@@ -77,8 +77,8 @@ exports.newOrder = catchAsyncErrors(async (req, res, next) => {
     // 5. Clear cart if COD (or always clear if order created successfully)
     await Cart.findOneAndDelete({ user: userId });
 
-    // 6. Send Order Confirmation Email
-    try {
+    // 6. Send Order Confirmation Email (COD only, non-blocking)
+    if (order.paymentInfo?.method === "COD") {
         const message = `Order Confirmed: ${order._id}`;
         const html = `
             <div style="font-family: 'Courier New', Courier, monospace; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px;">
@@ -122,14 +122,14 @@ exports.newOrder = catchAsyncErrors(async (req, res, next) => {
             </div>
         `;
 
-        await sendEmail({
+        sendEmail({
             email: req.user.email,
             subject: 'Order Confirmation - BagShop',
             message,
             html
+        }).catch((emailError) => {
+            console.error("Failed to send order confirmation email:", emailError);
         });
-    } catch (emailError) {
-        console.error("Failed to send order confirmation email:", emailError);
     }
 
     res.status(201).json({

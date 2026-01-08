@@ -6,8 +6,9 @@ exports.addToCart = async (req, res) => {
     try {
         const { productId, quantity } = req.body;
         const userId = req.user._id; // Get from Auth Middleware
+        const qty = Number(quantity);
 
-        if (quantity < 1) {
+        if (!Number.isFinite(qty) || qty < 1) {
             return res.status(400).json({ success: false, message: "Quantity must be at least 1" });
         }
 
@@ -29,18 +30,18 @@ exports.addToCart = async (req, res) => {
             const itemIndex = cart.cartItems.findIndex(p => p.product.toString() === productId);
 
             if (itemIndex > -1) {
-                // Product exists, return error
-                return res.status(409).json({ success: false, message: "Item already exists in cart" });
+                // Product exists, increment quantity instead of returning a conflict
+                cart.cartItems[itemIndex].quantity += qty;
             } else {
                 // Product does not exist, push new item
-                cart.cartItems.push({ product: productId, quantity });
+                cart.cartItems.push({ product: productId, quantity: qty });
             }
             await cart.save();
         } else {
             // No cart for this user, create a new one
             cart = await Cart.create({
                 user: userId,
-                cartItems: [{ product: productId, quantity }]
+                cartItems: [{ product: productId, quantity: qty }]
             });
         }
 
