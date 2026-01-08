@@ -71,9 +71,12 @@ exports.registerUser = catchAsyncErrors(async (req, res, next) => {
         });
 
     } catch (emailError) {
-        user.verificationToken = undefined;
-        await user.save({ validateBeforeSave: false });
-        return next(new ErrorHandler("Registration successful but failed to send verification email. Please contact support.", 500));
+        try {
+            await user.deleteOne();
+        } catch (cleanupError) {
+            console.error(`[Register] Failed to remove user after email error: ${cleanupError.message}`);
+        }
+        return next(new ErrorHandler("Registration failed: could not send verification email. Please try again.", 503));
     }
 });
 

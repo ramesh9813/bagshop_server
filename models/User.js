@@ -60,7 +60,8 @@ userSchema.pre("save", async function() {
     if (!this.isModified("password")) {
         return;
     }
-    this.password = await bcrypt.hash(this.password, 10);
+    const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
+    this.password = await bcrypt.hash(this.password, saltRounds);
 });
 
 // JWT Token
