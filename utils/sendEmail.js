@@ -17,7 +17,11 @@ const sendEmail = async (options) => {
     console.log(`[Email] Attempting to send email to: ${options.email}`);
 
     const timeoutMs = Number(process.env.SMTP_TIMEOUT_MS) || 8000;
-    const mailtrapToken = normalizeEnvValue(process.env.MAILTRAP_API_TOKEN);
+    const mailtrapToken = normalizeEnvValue(
+        process.env.MAILTRAP_API_TOKEN ||
+        process.env.MAILTRP_KEY ||
+        process.env.MAILTRAP_API_KEY
+    );
     const mailtrapEndpoint =
         normalizeEnvValue(process.env.MAILTRAP_API_URL) || "https://send.api.mailtrap.io/api/send";
     const mailtrapFromEmail =
